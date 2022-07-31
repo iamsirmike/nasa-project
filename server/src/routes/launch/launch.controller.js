@@ -1,43 +1,53 @@
 const {
   getAllLaunches,
-  scheduleLaunch,
+  scheduleNewLaunch,
   islaunchAvailable,
-  deleteLaunch,
+  abortLaunch,
 } = require("./../../models/launch.model");
 
-function httpGetLaunches(req, res) {
-  res.status(200).json(getAllLaunches());
+async function httpGetLaunches(req, res) {
+  res.status(200).json(await getAllLaunches());
 }
 
-function httpScheduleLaunch(req, res) {
+async function httpScheduleLaunch(req, res) {
   const launch = req.body;
 
   if (
-    !req.body.mission_name ||
-    !req.body.launch_date ||
-    !req.body.rocket_type ||
-    !req.body.planet_name
+    !req.body.missionName ||
+    !req.body.launchDate ||
+    !req.body.rocket ||
+    !req.body.target
   ) {
     return res.status(400).json({
       error: "Invalid data",
     });
   }
 
-  launch.launnch_date = new Date(launch.launch_date);
-  scheduleLaunch(req.body);
+  //convert and make sure date is correct
+  launch.launchDate = new Date(launch.launchDate);
+  await scheduleNewLaunch(launch);
 
   res.status(200).json(launch);
 }
 
-function httpDeleteLaunch(req, res) {
+async function httpDeleteLaunch(req, res) {
   const flightNumber = Number(req.params.flightNumber);
-  if (!islaunchAvailable(flightNumber)) {
+  const launchExist = await islaunchAvailable(flightNumber);
+  if (!launchExist) {
     return res.status(400).json({
       error: "Launch not found",
     });
   }
-  const editedLaunch = deleteLaunch(flightNumber);
-  res.status(200).json(editedLaunch);
+  const editedLaunch = await abortLaunch(flightNumber);
+
+  if (!editedLaunch) {
+    return res.status(400).json({
+      error: "Launch not found",
+    });
+  }
+  res.status(200).json({
+    ok: "Mission aborted successfuly",
+  });
 }
 
 module.exports = {
