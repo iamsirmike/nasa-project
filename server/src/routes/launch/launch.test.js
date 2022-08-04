@@ -1,52 +1,63 @@
 const app = require("../../../app");
 const request = require("supertest");
+const { mongoConnect, mongoDisconnect } = require("../../services/mongo");
 
-describe("Test GET /launches", () => {
-  test("It should return all launches", async () => {
-    const response = await request(app).get("/launches").expect(200);
+describe("Launches API test", () => {
+  beforeAll(async () => {
+    await mongoConnect();
   });
-});
 
-describe("Test POST /launches", () => {
-  const dataWithDate = {
-    mission_name: "FalconSat",
-    launch_date: "2006-03-24 05:00:00",
-    planet_name: "Earth",
-    rocket_type: "Merlin A",
-  };
-
-  const dataWithoutDate = {
-    mission_name: "FalconSat",
-    planet_name: "Earth",
-    rocket_type: "Merlin A",
-  };
-
-  test("add a launch should be successful and return 200", async () => {
-    // making the request is a supertest function
-    const response = await request(app)
-      .post("/launches")
-      .send(dataWithDate)
-      .expect("Content-Type", /json/)
-      .expect(200);
-
-    const requestDate = new Date(dataWithDate.launch_date).valueOf();
-    const responseDate = new Date(response.body.launch_date).valueOf();
-
-    //expect in this format is a jest matcher
-    expect(requestDate).toBe(responseDate);
-
-    expect(response.body).toMatchObject(dataWithDate);
+  afterAll(async () => {
+    await mongoDisconnect();
   });
-  test("catch missing required properties", async () => {
-    const response = await request(app)
-      .post("/launches")
-      .send(dataWithoutDate)
-      .expect(400);
 
-    //Expect the responsebody to strictly match the object
-    expect(response.body).toStrictEqual({
-      error: "Invalid data",
+  describe("Test GET /launches", () => {
+    test("It should return all launches", async () => {
+      const response = await request(app).get("/launches").expect(200);
     });
   });
-  test("catch invalid dates", () => {});
+
+  describe("Test POST /launches", () => {
+    const dataWithDate = {
+      missionName: "We move to moon",
+      launchDate: "2020-01-01T00:00:00.000Z",
+      rocket: "FalconSat",
+      target: "Kepler-1652 b",
+    };
+
+    const dataWithoutDate = {
+      missionName: "We move to moon",
+      rocket: "FalconSat",
+      target: "Kepler-1652 b",
+    };
+
+    test("add a launch should be successful and return 200", async () => {
+      // making the request is a supertest function
+      const response = await request(app)
+        .post("/launches")
+        .send(dataWithDate)
+        .expect("Content-Type", /json/)
+        .expect(200);
+
+      const requestDate = new Date(dataWithDate.launchDate).valueOf();
+      const responseDate = new Date(response.body.launchDate).valueOf();
+
+      //expect in this format is a jest matcher
+      expect(requestDate).toBe(responseDate);
+
+      expect(response.body).toMatchObject(dataWithDate);
+    });
+    test("catch missing required properties", async () => {
+      const response = await request(app)
+        .post("/launches")
+        .send(dataWithoutDate)
+        .expect(400);
+
+      //Expect the responsebody to strictly match the object
+      expect(response.body).toStrictEqual({
+        error: "Invalid data",
+      });
+    });
+    test("catch invalid dates", () => {});
+  });
 });
