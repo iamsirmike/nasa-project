@@ -1,3 +1,4 @@
+const axios = require("axios");
 const launchesDb = require("./launches.mongo.schema");
 const planets = require("./planet.mongo.schema");
 
@@ -7,6 +8,75 @@ const exludeMongoDefaultFields = {
   __v: 0,
   _id: 0,
 };
+
+//lINK TO SPACEX endpoint
+const SPACE_X_URL = "https://api.spacexdata.com/v4/launches/query";
+
+//Make call to SpaceX endpoint to fetch launches
+async function loadSpaceXLanuchesData() {
+  //As a way to minimize hitting the enpoint we check if this data is in the database
+  //If it in the databse we assume that we have already saved the data so we return
+  const isAvailable = await CheckIfDataExist({
+    flightNumber: 87,
+    missionName: "Starlink-2",
+    rocket: "Falcon 9",
+  });
+
+  if (isAvailable) {
+    console.log("Data already loaded!");
+    return;
+  }
+
+  //Make the call using axios
+  const response = await axios.post(SPACE_X_URL, {
+    query: {},
+    options: {
+      pagination: false,
+      populate: [
+        {
+          path: "rocket",
+          select: {
+            name: 1,
+          },
+        },
+        {
+          path: "payloads",
+          select: {
+            customers: 1,
+          },
+        },
+      ],
+    },
+  });
+  if (response.status !== 200) {
+    console.log("Error downloading spaceX data");
+    throw new Error("failed to download");
+  }
+
+  const launchDocs = response.data.docs;
+
+  //loop over the data(body) we got from the endpoint and map the values to match our luanchschema
+  for (const launchDoc of launchDocs) {
+    //This [payloads] contains a list of customers
+    const payload = launchDoc["payloads"];
+    const customers = payload.flatMap((payload) => {
+      return payload["customers"];
+    });
+
+    const launch = {
+      flightNumber: launchDoc["flight_number"],
+      missionName: launchDoc["name"],
+      rocket: launchDoc["rocket"]["name"],
+      launchDate: launchDoc["dte_local"],
+      upcoming: launchDoc["upcoming"],
+      sucess: launchDoc["success"],
+      customers: customers,
+    };
+    console.log(`${launch.flightNumber} ${launch.missionName}`);
+
+    addLaunch(launch);
+  }
+}
 
 async function getLatestFlightNumber() {
   //We sort the the list by flightNumber and arrange den in asscending order
@@ -19,20 +89,16 @@ async function getLatestFlightNumber() {
   return latestLaunch.flightNumber;
 }
 
-async function getAllLaunches() {
-  return await launchesDb.find({}, exludeMongoDefaultFields);
+//Get all launches and paginate
+async function getAllLaunches(skip, limit) {
+  return await launchesDb
+    .find({}, exludeMongoDefaultFields)
+    .sort({ flightNumber: 1 })
+    .skip(skip)
+    .limit(limit);
 }
 
 async function addLaunch(launch) {
-  //Check to see if the target name exist in the planets collection
-  //This is like foreign key
-  const planet = await planets.findOne({
-    planetName: launch.target,
-  });
-
-  //If it doesn't exist throw an error
-  if (!planet) throw new Error("No matching planet found");
-
   try {
     //Insert data into the launches collection
     return await launchesDb.findOneAndUpdate(
@@ -47,15 +113,27 @@ async function addLaunch(launch) {
   }
 }
 
+async function CheckIfDataExist(filter) {
+  return await launchesDb.findOne(filter);
+}
+
 //Check if a document with the flightNumber exist in the collection
 async function islaunchAvailable(flightNumber) {
-  const launch = await launchesDb.findOne({
+  const launch = await CheckIfDataExist({
     flightNumber: flightNumber,
   });
   return launch;
 }
 
 async function scheduleNewLaunch(launch) {
+  //Check to see if the target name exist in the planets collection
+  //This is like foreign key
+  const planet = await planets.findOne({
+    planetName: launch.target,
+  });
+
+  //If it doesn't exist throw an error
+  if (!planet) throw new Error("No matching planet found");
   const newFlightNumber = (await getLatestFlightNumber()) + 1;
   console.log(`flight ${newFlightNumber}`);
 
@@ -82,6 +160,7 @@ async function abortLaunch(flightNumber) {
 }
 
 module.exports = {
+  loadSpaceXLanuchesData,
   getAllLaunches,
   islaunchAvailable,
   scheduleNewLaunch,
