@@ -3,27 +3,21 @@
 //We now use express as a middleware to handle our requests.
 
 const http = require("http");
-const mongoose = require("mongoose");
+require("dotenv").config();
 
 const app = require("./app");
+const { mongoConnect } = require("./src/services/mongo");
 const { loadPlanetsData } = require("./src/models/planet.model");
+const { loadSpaceXLanuchesData } = require("./src/models/launch.model");
 
-const PORT = process.env.PORT || 8000;
-
+const PORT = process.env.PORT;
 
 const server = http.createServer(app);
 
-mongoose.connection.once("open", () => {
-  console.log("Mongo connection is ready!");
-});
-
-mongoose.connection.on("err", () => {
-  console.error(err);
-});
-
 async function startServer() {
-  await mongoose.connect(MONGO_URL);
+  await mongoConnect();
   await loadPlanetsData();
+  await loadSpaceXLanuchesData();
   server.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}...`);
   });
