@@ -3,9 +3,9 @@ const {
   scheduleNewLaunch,
   islaunchAvailable,
   abortLaunch,
-} = require("./../../models/launch.model");
+} = require("./../models/launch.model");
 
-const getPagination = require("../../services/pagination");
+const getPagination = require("../services/pagination");
 
 async function httpGetLaunches(req, res) {
   const { skip, limit } = getPagination(req.query);
