@@ -1,6 +1,7 @@
 const app = require("../../app");
 const request = require("supertest");
 const { mongoConnect, mongoDisconnect } = require("../services/mongo");
+const auth = require("../../middlewares/auth.middleware");
 
 describe("Launches API test", () => {
   beforeAll(async () => {
@@ -11,9 +12,17 @@ describe("Launches API test", () => {
     await mongoDisconnect();
   });
 
+  var commonHeaders = {
+    token:
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNjJlZDk1YzI1YzMzMmY3MTE2YzI0N2FmIiwidXNlck5hbWUiOiJpbmllc3RhIiwiaWF0IjoxNjU5NzM3NTM4LCJleHAiOjE2NTk3NTU1Mzh9.HanQcAjUd4JSOeCddeUmWRQq99UDSF-xVCigBPVd5ek",
+  };
+
   describe("Test GET /launches", () => {
     test("It should return all launches", async () => {
-      const response = await request(app).get("/launches").expect(200);
+      const response = await await request(app)
+        .get("/launches")
+        .set(commonHeaders)
+        .expect(200);
     });
   });
 
@@ -35,6 +44,7 @@ describe("Launches API test", () => {
       // making the request is a supertest function
       const response = await request(app)
         .post("/launches")
+        .set(commonHeaders)
         .send(dataWithDate)
         .expect("Content-Type", /json/)
         .expect(200);
@@ -50,6 +60,7 @@ describe("Launches API test", () => {
     test("catch missing required properties", async () => {
       const response = await request(app)
         .post("/launches")
+        .set(commonHeaders)
         .send(dataWithoutDate)
         .expect(400);
 
